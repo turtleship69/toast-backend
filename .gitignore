@@ -1,0 +1,11 @@
+venv/
+content/
+!content/.gitkeep
+
+.breakpoints
+.replit
+pyproject.toml
+poetry.lock
+replit.nix
+
+manage.py
