@@ -1,6 +1,6 @@
 venv/
 content/
-!content/.gitkeep
+__pycache__/
 
 .breakpoints
 .replit
@@ -9,3 +9,4 @@ poetry.lock
 replit.nix
 
 manage.py
+!content\.gitkeep

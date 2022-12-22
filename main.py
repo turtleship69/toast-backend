@@ -1,3 +1,5 @@
+from pprint import pprint
+
 import hashlib
 def gravatar(email, size=200):
     return f"https://www.gravatar.com/avatar/{hashlib.md5(email.lower().encode('utf-8')).hexdigest()}?s={size}"
@@ -9,7 +11,7 @@ import pyotp
 import time
 
 
-from flask import Flask, request, g
+from flask import Flask, request, g, make_response
 from datetime import datetime
 
 app = Flask(__name__)
@@ -42,10 +44,27 @@ def signup():
         'email': request.form['email'],
         'phone': request.form['phone'],
         'password': hash_password(request.form['password']),
+        'gravitar': gravatar(request.form['email'])
     }
-    cur.cursor().execute('INSERT INTO logins (username, email, phone, password) VALUES (?, ?, ?, ?)', (user['username'], user['email'], user['phone'], user['password']))
-    cur.commit()
-    return 'Signed up successfully', 200
+    pprint(user)
+    response = make_response('Signed up successfully', 200)
+    stop = False
+    #check that username, email, and phone are unique
+    if cur.cursor().execute('SELECT Username FROM logins WHERE Username = ?', (user['username'],)).fetchone() is not None:
+        response = make_response('Username already taken', 409)
+        stop = True
+    if cur.cursor().execute('SELECT Email FROM logins WHERE Email = ?', (user['email'],)).fetchone() is not None:
+        response = make_response('Email already taken', 409)
+        stop = True
+    if cur.cursor().execute('SELECT Phone FROM logins WHERE Phone = ?', (user['phone'],)).fetchone() is not None:
+        response = make_response('Phone already taken', 409)
+        stop = True
+    if not stop:
+        cur.cursor().execute('INSERT INTO logins (Username, Email, Phone, Password) VALUES (?, ?, ?, ?)', (user['username'], user['email'], user['phone'], user['password']))
+        #add user to table users("UserID", "Username", "GravatarURL")
+        cur.cursor().execute('INSERT INTO users (Username, GravatarURL) VALUES (?, ?)', (user['username'], user['gravitar']))
+        cur.commit()
+    return response
 
 @app.route('/login', methods=['POST'])
 def login():
