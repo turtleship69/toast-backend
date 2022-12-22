@@ -1,5 +1,5 @@
 venv/
-content/
+content/database.db
 __pycache__/
 
 .breakpoints
@@ -9,4 +9,3 @@ poetry.lock
 replit.nix
 
 manage.py
-!content\.gitkeep
