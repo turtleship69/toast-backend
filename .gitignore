@@ -1,5 +1,7 @@
 venv/
 content/database.db
+content/images/
+test/
 __pycache__/
 
 .breakpoints

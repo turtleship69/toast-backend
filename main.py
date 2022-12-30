@@ -1,4 +1,5 @@
 from pprint import pprint
+from compressor import compress_image
 
 # password hashing and gravatar url generation
 import hashlib
@@ -12,17 +13,20 @@ def hash_password(password):
 import pyotp
 import time
 
+#UUIDs
+from uuid import uuid4
+def generate_session_id():
+    return str(uuid4())
+
+
 # Flask
 from flask import Flask, request, g, make_response
 from datetime import datetime
-from uuid import uuid4
 
 app = Flask(__name__)
 
 ApplicationName = 'Toast'
 
-def generate_session_id():
-    return str(uuid4())
 
 # Database
 import sqlite3
@@ -45,6 +49,9 @@ startTime = datetime.now()
 @app.route('/')
 def index():
     return f"Server running for {datetime.now() - startTime}"
+
+
+#################### DATABASE MANAGEMENT ####################
 
 
 #################### SIGNUP AND LOGIN ####################
@@ -102,19 +109,54 @@ def login():
         twoFA = cur.cursor().execute('SELECT TotpKey FROM logins WHERE Username = ?', (request.form['username'],)).fetchone()[0]
         if twoFA is None:
             #if not, create session and return
-            cur.cursor().execute('INSERT INTO sessions (SessionKey, UserID, CreationTime) VALUES (?, (SELECT UserID FROM logins WHERE Username = ?), ?)', (session_id, request.form['username'], int(time.time())))
+            cur.cursor().execute('INSERT INTO sessions (SessionKey, UserID, CreationTime) VALUES (?, (SELECT UserID FROM logins WHERE Username = ?), datetime("now"))', (session_id, request.form['username'], ))
             cur.commit()
             response = make_response(f'"session_id":{session_id}, "message": "Logged in"', 200)
             response.set_cookie('session_id', session_id)
             return response
         else:
             #if so, create session and return
-            cur.cursor().execute('INSERT INTO sessions (SessionKey, UserID, CreationTime, TwoFA) VALUES (?, (SELECT UserID FROM logins WHERE Username = ?), ?, 0)', (session_id, request.form['username'], time.time()))
+            cur.cursor().execute('INSERT INTO sessions (SessionKey, UserID, CreationTime, "2FA" ) VALUES (?, (SELECT UserID FROM logins WHERE Username = ?), datetime("now"), 0)', (session_id, request.form['username']))
             cur.commit()
             response = make_response(f'"session_id":{session_id}, "message": "Verify 2FA code at /2faVerify"', 200)
             response.set_cookie('session_id', session_id)
             return response
 
+@app.route('/logout', methods=['POST'])
+def logout():
+    #get session from cookies or if not in cookies, get from request body
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
+    if session_id is None:
+        return 'No session found', 400
+    cur = get_db()
+    cur.cursor().execute('DELETE FROM sessions WHERE SessionKey = ?', (session_id,))
+    cur.commit()
+    return 'Logged out', 200
+
+@app.route('/check', methods=['POST'])
+def check():
+    #check if session exists and if 2fa has been verified if 2fa is enabled
+    # get session from cookies or if not in cookies, get from request body
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
+    session = get_db().cursor().execute('SELECT * FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()
+    if session is None:
+        return "Session does not exist"
+    if session[3] == 0:
+        return "2FA not verified"
+    return "Session valid"
+
+def verifySession(request, db):
+    #check if session exists and if 2fa has been verified if 2fa is enabled
+    # get session from cookies or if not in cookies, get from request body
+    print("Verifying session")
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
+    session = db.cursor().execute('SELECT * FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()
+    if session is None:
+        return "Session does not exist"
+    if session[3] == 0:
+        return "2FA not verified"
+    print("Session valid")
+    return False
 
 #################### 2FA ####################
 @app.route('/2faEnable', methods=['POST'])
@@ -153,7 +195,7 @@ def twoFAEnable():
         key = pyotp.random_base32()
         totp = pyotp.TOTP(key)
         # use table Temp2FAKeys("UserID", "Key", "CreationTime")
-        cur.cursor().execute('INSERT INTO Temp2FAKeys (UserID, Key, CreationTime) VALUES (?, ?, ?)', (session[1], key, time.time()))
+        cur.cursor().execute('INSERT INTO Temp2FAKeys (UserID, Key, CreationTime) VALUES (?, ?, datetime("now"))', (session[1], key))
         # get username from UserID
         username = cur.execute('SELECT Username FROM users WHERE UserID = ?', (session[1],)).fetchone()[0]
         cur.commit()
@@ -188,6 +230,135 @@ def twoFA():
     cur.cursor().execute('UPDATE sessions SET "2FA" = 1 WHERE SessionKey = ?', (request.cookies.get('session_id'),))
     cur.commit()
     return '2FA verified successfully', 200
+
+#################### UPLOAD ####################
+# 0 = Only Me
+# 1 = Only Friends
+# 2 = Everyone
+@app.route('/upload', methods=['POST'])
+def upload():
+    print("upload")
+    db = get_db()
+    # verify session
+    sessionError = verifySession(request, db)
+    if sessionError:
+        return sessionError, 401
+    print("session verified")
+    # get session from cookies or if not in cookies, get from request body
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form.get("session_id")
+    print("session_id: " + session_id)
+    """
+    request object:
+    {
+        session_id: {{ session_id }}, # optional, if not in cookies
+        noOfImages: {{ number }}, # 0-5
+        images: {
+            image1Visiblity: {{ image1Visiblity }}, # 0-2
+            image2Visiblity: {{ image2Visiblity }}, # 0-2
+            image3Visiblity: {{ image3Visiblity }}, # 0-2
+            image4Visiblity: {{ image4Visiblity }}, # 0-2
+            image5Visiblity: {{ image5Visiblity }} # 0-2
+        },
+        image1: {{ image1 }},
+        image2: {{ image2 }},
+        image3: {{ image3 }},
+        image4: {{ image4 }},
+        image5: {{ image5 }},
+        caption0: {{ caption0 }},
+        caption1: {{ caption1 }},
+        caption2: {{ caption2 }}
+        }
+    }
+    """
+    #check if there are any images, if not, just save the caption
+    # save to table archive("PostID", "UserID", "Date", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption")
+    # PostID is a random uuid
+    # UserID is the UserID of the user who uploaded the post
+    # Date is the current date using datetime("now")
+    # Images is the number 
+    # Caption is the caption of the post
+    # save to table images("UserID", "ImageURI", "PostID", "UploadDate")
+
+    postID = str(uuid4())
+    UserID = db.cursor().execute('SELECT UserID FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()[0] 
+    print("UserID:", UserID)
+    post = {
+        'PostID': postID,
+        'UserID': UserID, 
+        'caption': ""
+    }
+    pprint(request.form['caption0'])
+    if request.form['caption0']:
+        post['caption'] = post['caption']+f"Only visible for you: {request.form['caption0']}\n"
+    if request.form['caption1']:
+        post['caption'] = post['caption']+f"Only visible for your friends: {request.form['caption1']}\n"
+    if request.form['caption2']:
+        post['caption'] = post['caption']+f"Visible for everyone: {request.form['caption2']}"
+    pprint(post)
+    
+    images = []
+    for x in range(0, int(request.form['noOfImages'])):
+        #compress and save image, then save the name of the image to the database
+        image = request.files[f'image{x+1}']
+        name = str(uuid4())
+        images.append(name)
+        post[f'image{x+1}'] = name
+        compressedImage = compress_image(image)
+        with open(f"content/images/{name}.jpg", 'wb') as f:
+            f.write(compressedImage.getvalue())
+        db.cursor().execute('INSERT INTO images (UserID, ImageURI, PostID, UploadDate) VALUES (?, ?, ?, datetime("now"))', (UserID, name, postID))
+
+    #live_posts("PostID", "UserID", "Visiblity", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption", "UploadTime")
+    #visiblity: 1 = Only Friends, 2 = Everyone
+    # if applicable, make a post visible for friends
+    OF = True if 1 in [int(request.form[f'image{x+1}Visiblity']) for x in range(0, int(request.form['noOfImages']))] or request.form['caption1'] else False
+    stringToExecute = ''
+    if OF:
+        stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Visibility, '
+        for x in range(0, int(request.form['noOfImages'])):
+            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visiblity'] == '1' else ''
+        stringToExecute += 'Caption, UploadTime) VALUES (?, ?, 1, '
+        for x in range(0, int(request.form['noOfImages'])):
+            stringToExecute += '?, ' if request.form[f'image{x+1}Visiblity'] == '1' else ''
+        stringToExecute += '?, datetime("now"))\n'
+        print(stringToExecute)
+        OFImages = [post[f'image{x+1}'] for x in range(0, int(request.form['noOfImages'])) if request.form[f'image{x+1}Visiblity'] == '1']
+        db.cursor().execute(stringToExecute, (generate_session_id(), UserID, *OFImages, request.form['caption1']))
+    E = True if 2 in [int(request.form[f'image{x+1}Visiblity']) for x in range(0, int(request.form['noOfImages']))] or request.form['caption2'] else False
+    if E:
+        stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Visibility, '
+        for x in range(0, int(request.form['noOfImages'])):
+            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visiblity'] == '2' else ''
+        stringToExecute += 'Caption, UploadTime) VALUES (?, ?, 2, '
+        for x in range(0, int(request.form['noOfImages'])):
+            stringToExecute += '?, ' if request.form[f'image{x+1}Visiblity'] == '2' else ''
+        stringToExecute += '?, datetime("now"))'
+        print(stringToExecute)
+        EImages = [post[f'image{x+1}'] for x in range(0, int(request.form['noOfImages'])) if request.form[f'image{x+1}Visiblity'] == '2']
+        db.cursor().execute(stringToExecute, (generate_session_id(), UserID, *EImages, request.form['caption2']))
+    
+    
+
+    #make a database entry inserting each key from the post dictionary
+    stringToExecute = 'INSERT INTO archive (Date, '
+    for key in post:
+        stringToExecute += f'{key}, '
+    stringToExecute = stringToExecute[:-2] + ') VALUES (datetime("now"), '
+    for key in post:
+        stringToExecute += '?, '
+    stringToExecute = stringToExecute[:-2] + ')'
+    print(stringToExecute)
+    db.cursor().execute(stringToExecute, tuple(post.values()))
+    db.commit()
+    print("post saved")
+    return 'Post uploaded successfully', 200
+
+
+        
+
+
+
+
 
 
 
