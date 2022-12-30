@@ -253,11 +253,11 @@ def upload():
         session_id: {{ session_id }}, # optional, if not in cookies
         noOfImages: {{ number }}, # 0-5
         images: {
-            image1Visiblity: {{ image1Visiblity }}, # 0-2
-            image2Visiblity: {{ image2Visiblity }}, # 0-2
-            image3Visiblity: {{ image3Visiblity }}, # 0-2
-            image4Visiblity: {{ image4Visiblity }}, # 0-2
-            image5Visiblity: {{ image5Visiblity }} # 0-2
+            image1Visiblity: {{ image1Visibility }}, # 0-2
+            image2Visiblity: {{ image2Visibility }}, # 0-2
+            image3Visiblity: {{ image3Visibility }}, # 0-2
+            image4Visiblity: {{ image4Visibility }}, # 0-2
+            image5Visiblity: {{ image5Visibility }} # 0-2
         },
         image1: {{ image1 }},
         image2: {{ image2 }},
@@ -296,45 +296,48 @@ def upload():
         post['caption'] = post['caption']+f"Visible for everyone: {request.form['caption2']}"
     pprint(post)
     
-    images = []
+    OFImages = []
+    EImages = []
     for x in range(0, int(request.form['noOfImages'])):
         #compress and save image, then save the name of the image to the database
         image = request.files[f'image{x+1}']
         name = str(uuid4())
-        images.append(name)
+        if int(request.form[f'image{x+1}Visibility']) == 1:
+            OFImages.append(name)
+        elif int(request.form[f'image{x+1}Visibility']) == 2:
+            EImages.append(name)
         post[f'image{x+1}'] = name
         compressedImage = compress_image(image)
         with open(f"content/images/{name}.jpg", 'wb') as f:
             f.write(compressedImage.getvalue())
         db.cursor().execute('INSERT INTO images (UserID, ImageURI, PostID, UploadDate) VALUES (?, ?, ?, datetime("now"))', (UserID, name, postID))
 
-    #live_posts("PostID", "UserID", "Visiblity", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption", "UploadTime")
+    #live_posts("PostID", "UserID", "Visibility", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption", "UploadTime")
     #visiblity: 1 = Only Friends, 2 = Everyone
     # if applicable, make a post visible for friends
-    OF = True if 1 in [int(request.form[f'image{x+1}Visiblity']) for x in range(0, int(request.form['noOfImages']))] or request.form['caption1'] else False
-    stringToExecute = ''
+    OF = True if len(OFImages) > 0 or request.form['caption1'] else False
+    # if applicable, make a post visible for everyone
+    E = True if len(EImages) > 0 or request.form['caption2'] else False
     if OF:
         stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Visibility, '
         for x in range(0, int(request.form['noOfImages'])):
-            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visiblity'] == '1' else ''
+            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visibility'] == '1' else ''
         stringToExecute += 'Caption, UploadTime) VALUES (?, ?, 1, '
         for x in range(0, int(request.form['noOfImages'])):
-            stringToExecute += '?, ' if request.form[f'image{x+1}Visiblity'] == '1' else ''
+            stringToExecute += '?, ' if request.form[f'image{x+1}Visibility'] == '1' else ''
         stringToExecute += '?, datetime("now"))\n'
         print(stringToExecute)
-        OFImages = [post[f'image{x+1}'] for x in range(0, int(request.form['noOfImages'])) if request.form[f'image{x+1}Visiblity'] == '1']
         db.cursor().execute(stringToExecute, (generate_session_id(), UserID, *OFImages, request.form['caption1']))
-    E = True if 2 in [int(request.form[f'image{x+1}Visiblity']) for x in range(0, int(request.form['noOfImages']))] or request.form['caption2'] else False
+    E = True if 2 in [int(request.form[f'image{x+1}Visibility']) for x in range(0, int(request.form['noOfImages']))] or request.form['caption2'] else False
     if E:
         stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Visibility, '
         for x in range(0, int(request.form['noOfImages'])):
-            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visiblity'] == '2' else ''
+            stringToExecute += f'Image{x+1}, ' if request.form[f'image{x+1}Visibility'] == '2' else ''
         stringToExecute += 'Caption, UploadTime) VALUES (?, ?, 2, '
         for x in range(0, int(request.form['noOfImages'])):
-            stringToExecute += '?, ' if request.form[f'image{x+1}Visiblity'] == '2' else ''
+            stringToExecute += '?, ' if request.form[f'image{x+1}Visibility'] == '2' else ''
         stringToExecute += '?, datetime("now"))'
         print(stringToExecute)
-        EImages = [post[f'image{x+1}'] for x in range(0, int(request.form['noOfImages'])) if request.form[f'image{x+1}Visiblity'] == '2']
         db.cursor().execute(stringToExecute, (generate_session_id(), UserID, *EImages, request.form['caption2']))
     
     
