@@ -280,7 +280,7 @@ def upload():
                     "message": "You already have a post today",
                     "postID": today[0]
                 }
-            )
+            ), 429
         )
     # check if there are any images, if not, just save the caption
     # save to table archive("PostID", "UserID", "Date", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption")
