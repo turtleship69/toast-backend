@@ -20,7 +20,7 @@ def generate_session_id():
 
 
 # Flask
-from flask import Flask, request, g, make_response
+from flask import Flask, request, g, make_response, jsonify
 from datetime import datetime
 
 app = Flask(__name__)
@@ -270,7 +270,19 @@ def upload():
         }
     }
     """
-    #check if there are any images, if not, just save the caption
+    # check if user already has a post today, if so, return post id
+    today = db.cursor().execute('SELECT * FROM archive WHERE UserID = (SELECT UserID FROM sessions WHERE SessionKey = ?) AND Date LIKE ?', (session_id, datetime.now().strftime("%Y-%m-%d") + "%")).fetchone()
+    if today is not None:
+        return make_response(
+            jsonify(
+                {
+                    "status": "not uploaded", 
+                    "message": "You already have a post today",
+                    "postID": today[0]
+                }
+            )
+        )
+    # check if there are any images, if not, just save the caption
     # save to table archive("PostID", "UserID", "Date", "Image1", "Image2", "Image3", "Image4", "Image5", "Caption")
     # PostID is a random uuid
     # UserID is the UserID of the user who uploaded the post
@@ -354,13 +366,15 @@ def upload():
     db.cursor().execute(stringToExecute, tuple(post.values()))
     db.commit()
     print("post saved")
-    return 'Post uploaded successfully', 200
-
-
-        
-
-
-
+    return make_response(
+        jsonify(
+            {
+                "status": "uploaded",
+                "message": "Post uploaded successfully",
+                "postID": postID
+            }
+        )
+    )
 
 
 
