@@ -101,7 +101,7 @@ def login():
     if password != hash_password(request.form['password']):
         invalid = True
     if invalid:
-        return 'Invalid username or password', 401
+        return jsonify({'status': 'error','message': 'Invalid username or password'}), 401
     else:
         #create session, and add to sessions table
         session_id = generate_session_id()
@@ -122,7 +122,7 @@ def login():
             response.set_cookie('session_id', session_id)
             return response
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
     #get session from cookies or if not in cookies, get from request body
     session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
@@ -133,7 +133,7 @@ def logout():
     cur.commit()
     return 'Logged out', 200
 
-@app.route('/check', methods=['POST'])
+@app.route('/check', methods=['GET', 'POST'])
 def check():
     #check if session exists and if 2fa has been verified if 2fa is enabled
     # get session from cookies or if not in cookies, get from request body
@@ -179,18 +179,19 @@ def twoFAEnable():
     """
     #check if session exists
     cur = get_db()
-    session = cur.cursor().execute('SELECT * FROM sessions WHERE SessionKey = ?', (request.cookies.get('session_id'),)).fetchone()
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
+    session = cur.cursor().execute('SELECT * FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()
     if session is None:
-        return 'Session does not exist', 401
+        return jsonify({'status': 'error','message': 'Session does not exist'}), 401
     #check if 2FA is enabled
     twoFA = cur.cursor().execute('SELECT TotpKey FROM logins WHERE UserID = ?', (session[1],)).fetchone()[0]
     if twoFA is not None:
-        return '2FA is already enabled', 401
+        return jsonify({'status': 'error','message': '2FA already enabled'}), 401
     if request.form['step'] == '0':
         #check if login is valid
         password = cur.cursor().execute('SELECT password FROM logins WHERE UserID = ?', (session[1],)).fetchone()[0]
         if password != hash_password(request.form['password']):
-            return 'Invalid password', 401
+            return jsonify({'status': 'error','message': 'Invalid password'}), 401
         #if so, return 2FA url
         key = pyotp.random_base32()
         totp = pyotp.TOTP(key)
@@ -199,37 +200,56 @@ def twoFAEnable():
         # get username from UserID
         username = cur.execute('SELECT Username FROM users WHERE UserID = ?', (session[1],)).fetchone()[0]
         cur.commit()
-        return totp.provisioning_uri(f"{username}@{ApplicationName}", issuer_name=ApplicationName)
+        totpurl = totp.provisioning_uri(f"{username}@{ApplicationName}", issuer_name=ApplicationName)
+        return jsonify({'status': 'success','message': 'proceed to step 1', 'url': totpurl}), 200
     elif request.form['step'] == '1':
         #check if 2FA code is correct
         key = cur.cursor().execute('SELECT Key FROM Temp2FAKeys WHERE UserID = ?', (session[1],)).fetchone()[0]
         if not pyotp.TOTP(key).verify(request.form['code']):
-            return 'Invalid 2FA code, try again', 401
+            return jsonify({'status': 'error','message': 'Invalid 2FA code, try again'}), 401
         #if so, update session and return
         cur.cursor().execute('UPDATE logins SET TotpKey = ? WHERE UserID = ?', (key, session[1]))
         cur.cursor().execute('DELETE FROM Temp2FAKeys WHERE UserID = ?', (session[1],))
         cur.commit()
-        return '2FA enabled successfully', 200
+        return jsonify({'status': 'success','message': '2FA enabled successfully'}), 200
 
 
 @app.route('/2faVerify', methods=['POST'])
 def twoFA():
+    """
+    request object:
+    {
+        "session_id": {{ session_id }}, #if not in cookies
+        "code": {{ code from 2fa app }}
+    }
+    response object if success:
+    {
+        "status": "success",
+        "message": "2FA verified successfully"
+    }
+    response object if error:
+    {
+        "status": "error",
+        "message": "Invalid 2FA code, try again" or "2FA is not enabled"
+    }
+    """
     #check if session exists
     cur = get_db()
-    session = cur.execute('SELECT * FROM sessions WHERE SessionKey = ?', (request.cookies.get('session_id'),)).fetchone()
+    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
+    session = cur.execute('SELECT * FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()
     if session is None:
         return 'Session does not exist', 401
     #check if 2FA is enabled
     twoFA = cur.cursor().execute('SELECT TotpKey FROM logins WHERE UserID = ?', (session[1],)).fetchone()[0]
     if twoFA is None:
-        return '2FA is not enabled', 401
+        return jsonify({'status': 'error','message': '2FA is not enabled'}), 401
     #check if 2FA code is correct
     if not pyotp.TOTP(twoFA).verify(request.form['code']):
-        return 'Invalid 2FA code', 401
+        return jsonify({'status': 'error','message': 'Invalid 2FA code, try again'}), 401
     #if so, update session and return
-    cur.cursor().execute('UPDATE sessions SET "2FA" = 1 WHERE SessionKey = ?', (request.cookies.get('session_id'),))
+    cur.cursor().execute('UPDATE sessions SET "2FA" = 1 WHERE SessionKey = ?', (session_id,))
     cur.commit()
-    return '2FA verified successfully', 200
+    return jsonify({'status': 'success','message': '2FA verified successfully'}), 200
 
 #################### UPLOAD ####################
 # 0 = Only Me
@@ -252,22 +272,19 @@ def upload():
     {
         session_id: {{ session_id }}, # optional, if not in cookies
         noOfImages: {{ number }}, # 0-5
-        images: {
-            image1Visiblity: {{ image1Visibility }}, # 0-2
-            image2Visiblity: {{ image2Visibility }}, # 0-2
-            image3Visiblity: {{ image3Visibility }}, # 0-2
-            image4Visiblity: {{ image4Visibility }}, # 0-2
-            image5Visiblity: {{ image5Visibility }} # 0-2
-        },
+        image1Visiblity: {{ image1Visibility }}, # 0-2
+        image2Visiblity: {{ image2Visibility }}, # 0-2
+        image3Visiblity: {{ image3Visibility }}, # 0-2
+        image4Visiblity: {{ image4Visibility }}, # 0-2
+        image5Visiblity: {{ image5Visibility }}, # 0-2
         image1: {{ image1 }},
         image2: {{ image2 }},
         image3: {{ image3 }},
         image4: {{ image4 }},
         image5: {{ image5 }},
-        caption0: {{ caption0 }},
-        caption1: {{ caption1 }},
-        caption2: {{ caption2 }}
-        }
+        caption0: {{ caption0 }}, # optional
+        caption1: {{ caption1 }}, # optional
+        caption2: {{ caption2 }} # optional
     }
     """
     # check if user already has a post today, if so, return post id
@@ -421,8 +438,8 @@ def follow():
         return make_response(
             jsonify(
                 {
-                    "message": "You are already following this user",
-                    "status": "error"
+                    "status": "error",
+                    "message": "You are already following this user"
                 }
             )
         )
@@ -455,10 +472,10 @@ def unfollow():
     userToUnfollow = request.form['userToUnfollow']
     #get the UserID of the user who is following
     UserID = db.cursor().execute('SELECT UserID FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()[0]
-    #get the UserID of the user who is being followed
-    userToUnfollowID = db.cursor().execute('SELECT UserID FROM users WHERE Username = ?', (userToUnfollow,)).fetchone()[0]
+    # #get the UserID of the user who is being followed
+    # userToUnfollowID = db.cursor().execute('SELECT UserID FROM users WHERE Username = ?', (userToUnfollow,)).fetchone()[0]
     #check if the user is already following the user
-    if not db.cursor().execute('SELECT * FROM followers WHERE follower = ? AND followee = ?', (UserID, userToUnfollowID)).fetchone():
+    if not db.cursor().execute('SELECT * FROM followers WHERE follower = ? AND followee = (SELECT UserID FROM users WHERE Username = ?)', (UserID, userToUnfollow)).fetchone():
         return make_response(
             jsonify(
                 {
@@ -468,7 +485,7 @@ def unfollow():
             )
         )
     #remove the user from the followers table
-    db.cursor().execute('DELETE FROM followers WHERE follower = ? AND followee = ?', (UserID, userToUnfollowID))
+    db.cursor().execute('DELETE FROM followers WHERE follower = ? AND followee = (SELECT UserID FROM users WHERE Username = ?)', (UserID, userToUnfollow))
     db.commit()
     return make_response(
         jsonify(
@@ -505,10 +522,10 @@ def following():
     #table followers in format: followers(follower, followee, type)
     if request.method == 'POST':
         session_id = request.cookies.get('session_id') if not request.form.get('session_id') else request.form.get('session_id')
-        if not session_id:
-            return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
     else:
         session_id = request.cookies.get('session_id')
+    if not session_id:
+        return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
     following = db.cursor().execute('SELECT * FROM followers WHERE follower = (SELECT UserID FROM sessions WHERE SessionKey = ?)', (session_id,)).fetchall()
     if not following:
         return make_response(jsonify({"status": "success","message": "You are not following anyone","number": 0,"users": []}))
