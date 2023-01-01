@@ -95,9 +95,9 @@ def login():
     cur = get_db()
     #check if hashed password matches the saved password for user
     password = cur.cursor().execute('SELECT password FROM logins WHERE Username = ?', (request.form['username'],))
-    password = password.fetchone()[0]
     if password is None:
         invalid = True
+    password = password.fetchone()[0]
     if password != hash_password(request.form['password']):
         invalid = True
     if invalid:
@@ -376,8 +376,211 @@ def upload():
         )
     )
 
+#################### FOLLOWERS ####################
+#user needs to be able to follow, unfollow, see who they follow, see who follows them
+#use routes /follow, /unfollow, /following, /followers
 
+@app.route('/follow', methods=['POST'])
+def follow():
+    """
+    request object should contain:
+    {
+        "session_id": {{ session_id }}, #optional, or use cookie
+        "userToFollow": {{ username }},
+        "level": {{ level }} #1 = follow, 2 = friend
+    }
+    if user chooses to follow add as a follower
+    if user chooses to friend add as a follower and send a friend request
+    """
+    db = get_db()
+    #table followers in format: followers(follower, followee, type)
+    session_id = request.cookies.get('session_id') if not request.form.get('session_id') else request.form.get('session_id')
+    if not session_id:
+        return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
+    userToFollow = request.form['userToFollow']
+    level = request.form['level']
+    if level == "2":
+        #not implemented yet
+        return make_response(jsonify({"status": "error","message": "Friend requests not implemented yet"}), 501)
+    #get the UserID of the user who is following
+    UserID = db.cursor().execute('SELECT UserID FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()[0]
+    #chec if user exists and get the UserID of the user who is being followed
+    userToFollowID = db.cursor().execute('SELECT UserID FROM users WHERE Username = ?', (userToFollow,)).fetchone()
+    if not userToFollowID:
+        return make_response(
+            jsonify(
+                {
+                    "message": "User does not exist",
+                    "status": "error"
+                }
+            ), 404
+        )
+    userToFollowID = userToFollowID[0]
+    #check if the user is already following the user
+    if db.cursor().execute('SELECT * FROM followers WHERE follower = ? AND followee = ?', (UserID, userToFollowID)).fetchone():
+        return make_response(
+            jsonify(
+                {
+                    "message": "You are already following this user",
+                    "status": "error"
+                }
+            )
+        )
+    #add the user to the followers table
+    db.cursor().execute('INSERT INTO followers (follower, followee, type) VALUES (?, ?, ?)', (UserID, userToFollowID, level))
+    db.commit()
+    return make_response(
+        jsonify(
+            {
+                "status": "success",
+                "message": f"You are now following {userToFollow}"
+            }
+        )
+    )
 
+@app.route('/unfollow', methods=['POST'])
+def unfollow():
+    """
+    request object should contain:
+    {
+        "session_id": {{ session_id }}, #optional, or use cookie
+        "userToUnfollow": {{ username }}
+    }
+    """
+    db = get_db()
+    #table followers in format: followers(follower, followee, type)
+    session_id = request.cookies.get('session_id') if not request.form.get('session_id') else request.form.get('session_id')
+    if not session_id:
+        return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
+    userToUnfollow = request.form['userToUnfollow']
+    #get the UserID of the user who is following
+    UserID = db.cursor().execute('SELECT UserID FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()[0]
+    #get the UserID of the user who is being followed
+    userToUnfollowID = db.cursor().execute('SELECT UserID FROM users WHERE Username = ?', (userToUnfollow,)).fetchone()[0]
+    #check if the user is already following the user
+    if not db.cursor().execute('SELECT * FROM followers WHERE follower = ? AND followee = ?', (UserID, userToUnfollowID)).fetchone():
+        return make_response(
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"You are not following {userToUnfollow}"
+                }
+            )
+        )
+    #remove the user from the followers table
+    db.cursor().execute('DELETE FROM followers WHERE follower = ? AND followee = ?', (UserID, userToUnfollowID))
+    db.commit()
+    return make_response(
+        jsonify(
+            {
+                "status": "success",
+                "message": f"You are no longer following {userToUnfollow}"
+            }
+        )
+    )
+
+@app.route('/following', methods=['GET', 'POST'])
+def following():
+    """
+    request object should contain if post request:
+    {
+        "session_id": {{ session_id }}, #optional, or use cookie
+    }
+    response object should contain:
+    {
+        "status": "success",
+        "message": "you are following {{number of users}} users",
+        "number": {{number of users}},
+        "users": [
+            {
+                "username": {{ username }},
+                "level": {{ level }} #1 = follow, 2 = friend
+            },
+            ...
+        ]
+    }
+
+    """
+    db = get_db()
+    #table followers in format: followers(follower, followee, type)
+    if request.method == 'POST':
+        session_id = request.cookies.get('session_id') if not request.form.get('session_id') else request.form.get('session_id')
+        if not session_id:
+            return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
+    else:
+        session_id = request.cookies.get('session_id')
+    following = db.cursor().execute('SELECT * FROM followers WHERE follower = (SELECT UserID FROM sessions WHERE SessionKey = ?)', (session_id,)).fetchall()
+    if not following:
+        return make_response(jsonify({"status": "success","message": "You are not following anyone","number": 0,"users": []}))
+    users = []
+    for user in following:
+        users.append(
+            {
+                "username": db.cursor().execute('SELECT Username FROM users WHERE UserID = ?', (user[1],)).fetchone()[0],
+                "level": user[2]
+            }
+        )
+    return make_response(
+        jsonify(
+            {
+                "status": "success",
+                "message": f"You are following {len(users)} users",
+                "number": len(users),
+                "users": users
+            }
+        )
+    )
+
+@app.route('/followers', methods=['GET', 'POST'])
+def followers():
+    """
+    if post request request object should contain:
+    {
+        "session_id": {{ session_id }}, #optional, or use cookie
+    }
+    response object should contain:
+    {
+        "status": "success",
+        "message": "{{username}} is followed by {{number of users}} users",
+        "number": {{number of users}},
+        "users": [
+            {
+                "username": {{ username }},
+                "level": {{ level }} #1 = follow, 2 = friend
+            },
+            ...
+        ]
+    }
+    """
+    db = get_db()
+    #table followers in format: followers(follower, followee, type)
+    if request.method == 'POST':
+        session_id = request.cookies.get('session_id') if not request.form.get('session_id') else request.form.get('session_id')
+        if not session_id:
+            return make_response(jsonify({"status": "error","message": "Invalid or missing sessionID"}), 401)
+    else:
+        session_id = request.cookies.get('session_id')
+    followers = db.cursor().execute('SELECT * FROM followers WHERE followee = (SELECT UserID FROM sessions WHERE SessionKey = ?)', (session_id,)).fetchall()
+    if not followers:
+        return make_response(jsonify({"status": "success","message": "You have no followers","number": 0,"users": []}))
+    users = []
+    for user in followers:
+        users.append(
+            {
+                "username": db.cursor().execute('SELECT Username FROM users WHERE UserID = ?', (user[0],)).fetchone()[0],
+                "level": user[2]
+            }
+        )
+    return make_response(
+        jsonify(
+            {
+                "status": "success",
+                "message": f"You have {len(users)} followers",
+                "number": len(users),
+                "users": users
+            }
+        )
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=81)
