@@ -1,0 +1,41 @@
+Toast:
+    Accounts:
+        ☐ Change password
+        ☐ Verify email
+        ☐ Change email/phone
+
+        ☐ update `verifySession` to `returnSession`
+    Notifications:
+        ☐ add notification list
+        ☐ add friend request notification
+    Followers and friends:
+        ☐ get requests
+        ☐ add friend requests
+        ☐ notify on friend request or follow
+        ☐ following - see others' following
+        ☐ followers - see others' followers
+    Frontend:
+        ☐ make a frontend
+    Tests:
+        Accounts:
+            ☐ Sign up
+            ☐ Sign up with a username/email/phone that already exists
+            ☐ Log in
+            ☐ Log in with a username/email/phone that doesn't exist
+            ☐ Log in with a wrong password
+            ☐ Log out
+        Followers:
+            ☐ follow a user
+            ☐ unfollow a user
+            ☐ follow a user that doesn't exist
+            ☐ unfollow a user that doesn't exist
+            ☐ follow a user that you already follow
+            ☐ unfollow a user that you don't follow
+            ☐ send a friend request to a user
+            ☐ send a friend request to a user that doesn't exist
+            ☐ send a friend request to a user that you already sent a friend request to
+            ☐ accept a friend request
+            ☐ accept a friend request that doesn't exist
+        Upload:
+            ☐ Just caption1-3
+            ☐ Just image1-5
