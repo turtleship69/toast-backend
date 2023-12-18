@@ -1,5 +1,5 @@
 from pprint import pprint
-from compressor import compress_image
+from tools import compress_image
 
 # password hashing and gravatar url generation
 import hashlib
@@ -145,18 +145,7 @@ def check():
         return "2FA not verified"
     return "Session valid"
 
-def verifySession(request, db):
-    #check if session exists and if 2fa has been verified if 2fa is enabled
-    # get session from cookies or if not in cookies, get from request body
-    print("Verifying session")
-    session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form['session_id']
-    session = db.cursor().execute('SELECT * FROM sessions WHERE SessionKey = ?', (session_id,)).fetchone()
-    if session is None:
-        return "Session does not exist"
-    if session[3] == 0:
-        return "2FA not verified"
-    print("Session valid")
-    return False
+
 
 #################### 2FA ####################
 @app.route('/2faEnable', methods=['POST'])
@@ -212,6 +201,8 @@ def twoFAEnable():
         cur.cursor().execute('DELETE FROM Temp2FAKeys WHERE UserID = ?', (session[1],))
         cur.commit()
         return jsonify({'status': 'success','message': '2FA enabled successfully'}), 200
+    else:
+        return jsonify({'status': 'error','message': 'Invalid step'}), 400
 
 
 @app.route('/2faVerify', methods=['POST'])
@@ -259,14 +250,10 @@ def twoFA():
 def upload():
     print("upload")
     db = get_db()
-    # verify session
-    sessionError = verifySession(request, db)
-    if sessionError:
-        return sessionError, 401
     print("session verified")
     # get session from cookies or if not in cookies, get from request body
     session_id = request.cookies.get('session_id') if request.cookies.get('session_id') is not None else request.form.get("session_id")
-    print("session_id: " + session_id)
+    print("session_id: " + str(session_id))
     """
     request object:
     {

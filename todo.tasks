@@ -1,10 +1,11 @@
 Toast:
-    Accounts:
-        ☐ Change password
-        ☐ Verify email
-        ☐ Change email/phone
-
-        ☐ update `verifySession` to `returnSession`
+    Code Cleanup:
+        ☐ change json.dumps to jsonify
+        ☐ validate more efficiently
+        API: 
+            ☐ Error codes - each error string has dedicated error code
+                ☐ translations??
+            ☐ Documentation update 😩
     Notifications:
         ☐ add notification list
         ☐ add friend request notification

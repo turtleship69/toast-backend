@@ -3,6 +3,7 @@ content/database.db
 content/images/
 test/
 __pycache__/
+.vscode/settings.json
 
 .breakpoints
 .replit
@@ -11,3 +12,6 @@ poetry.lock
 replit.nix
 
 manage.py
+waitress.bat
+content/archives/
+api.txt
