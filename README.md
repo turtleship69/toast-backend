@@ -40,8 +40,9 @@ If 2FA is enabled:
 If no 2FA:
 ```json
 {
-    "session_id": {session_id},
+    "status": "success",
     "message": "Logged in"
+    "session_id": {session_id},
 }
 ```
 If unsuccessful:  
@@ -239,7 +240,7 @@ If successful:
 }
 ```
 
-## GET or POST /following
+### GET or POST /following
 request object
 ```json
 {
@@ -263,7 +264,7 @@ responce object if post request is used:
 }
 ```
 
-## GET or POST /followers
+### GET or POST /followers
 request object if post request is used:
 ```json
 {
