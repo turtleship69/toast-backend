@@ -15,3 +15,4 @@ manage.py
 waitress.bat
 content/archives/
 api.txt
+oven/config.py
