@@ -1,5 +1,6 @@
 import functools
-import json
+# import json
+# import re
 from traceback import print_tb
 from urllib import response
 from flask import (
@@ -99,6 +100,8 @@ def login_required(view):
 @bp.route("/login")  # , methods=["POST"]
 def login():
     redirect_url = request.args.get("redirect_url", "")
+    redirect_url_parameter = f"?redirect_url={redirect_url}"
+
     # print(g.session)
     if g.session:
         print(f"session id to be deleted: {len(g.session_id)}")
@@ -153,7 +156,7 @@ def login():
         response = {
             "message": "signed up successfully",
             "status": "success",
-            "redirect_url": "/onboarding" + redirect_url,
+            "redirect_url": "/onboarding" + redirect_url_parameter,
             "session_id": session_id,
         }
 
@@ -169,7 +172,7 @@ def login():
         response = {
             "message": "user not onboarded yet",
             "status": "success",
-            "redirect_url": "/onboarding" + redirect_url,
+            "redirect_url": "/onboarding" + redirect_url_parameter,
             "session_id": session_id,
         }
 
@@ -183,7 +186,7 @@ def login():
     response = {
         "message": "logged in successfully",
         "status": "success",
-        "redirect_url": "/" + redirect_url,
+        "redirect_url": "/" if not redirect_url else redirect_url,
         "session_id": session_id,
     }
 
@@ -196,17 +199,22 @@ def onboarding():
     """
     request object:
     {
-        "session_id": {{ session_id }}, #if not in cookies
         "username": "username the user wants"
+        "redirect_url": optional value, if present redirect to this url instead
         "bio": "bio"
     }
     """
     username = request.form.get("username")
     bio = request.form.get("bio")
-    print(dict(request.form))
-    # if not username:
-    #     response = {"status": "error", "message": "username not provided"}
-    #     return jsonify(response), 403
+
+    redirect_url = request.form.get("redirect_url")
+    if not redirect_url:
+        redirect_url = f"/user?u={username}"
+    # print(dict(request.form))
+        
+    if not username:
+        response = {"status": "error", "message": "username not provided"}
+        return jsonify(response), 403
 
     user = (
         g.db.cursor()
@@ -240,11 +248,11 @@ def onboarding():
             g.UserID,
         ),
     )
-    g.db.commit()
+
     response = {
         "message": "onboarding completed",
         "status": "success",
-        "redirect": f"/user?u={username}",
+        "redirect_url": redirect_url,
     }
     print("c")
     return jsonify(response)
