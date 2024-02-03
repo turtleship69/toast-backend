@@ -98,6 +98,7 @@ def login_required(view):
 
 @bp.route("/login")  # , methods=["POST"]
 def login():
+    redirect_url = request.args.get("redirect_url", "")
     # print(g.session)
     if g.session:
         print(f"session id to be deleted: {len(g.session_id)}")
@@ -152,7 +153,7 @@ def login():
         response = {
             "message": "signed up successfully",
             "status": "success",
-            "redirect_url": "/onboarding",
+            "redirect_url": "/onboarding" + redirect_url,
             "session_id": session_id,
         }
 
@@ -168,7 +169,7 @@ def login():
         response = {
             "message": "user not onboarded yet",
             "status": "success",
-            "redirect_url": "/onboarding",
+            "redirect_url": "/onboarding" + redirect_url,
             "session_id": session_id,
         }
 
@@ -182,7 +183,7 @@ def login():
     response = {
         "message": "logged in successfully",
         "status": "success",
-        "redirect_url": "/",
+        "redirect_url": "/" + redirect_url,
         "session_id": session_id,
     }
 
