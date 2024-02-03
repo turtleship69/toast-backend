@@ -4,7 +4,7 @@ from flask import Blueprint, make_response, send_from_directory
 from flask import make_response
 
 
-bp = Blueprint('images', __name__, url_prefix="images")
+bp = Blueprint('images', __name__, url_prefix="/images")
 
 @bp.route('/<path:filename>')
 def serve_image(filename):
