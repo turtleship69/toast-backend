@@ -42,10 +42,7 @@ def load_logged_in_user():
 
     g.db = get_db()
 
-    if request.form.get("session_id"):
-        session_id = request.form.get("session_id")
-    else:
-        session_id = session.get("session_id")
+    session_id = session.get("session_id")
     g.session_id = session_id
     if session_id is None:
         g.session = None
