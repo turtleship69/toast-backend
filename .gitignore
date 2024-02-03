@@ -1,18 +1,21 @@
-venv/
-content/database.db
-content/images/
-test/
 __pycache__/
-.vscode/settings.json
+test/
+venv/
 
+.vscode/settings.json
 .breakpoints
 .replit
-pyproject.toml
 poetry.lock
+pyproject.toml
 replit.nix
+
+content/database.db
+content/archives/*
+content/images/*
+!content/images/.gitkeep
+!content/archives/.gitkeep
 
 manage.py
 waitress.bat
-content/archives/
 api.txt
 oven/config.py
