@@ -28,4 +28,7 @@ def create_app():
     from . import friendships
     app.register_blueprint(friendships.bp)
 
+    from . import images
+    app.register_blueprint(images.bp)
+
     return app
