@@ -72,7 +72,8 @@ def load_logged_in_user():
 def close_database(response):
     g.db.commit()
     g.db.close()
-    print("bye")
+    # print("bye")
+    response.headers.add('Access-Control-Allow-Origin', f"https://{cfg.AUDIENCE}")
     return response
 
 
