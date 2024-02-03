@@ -40,7 +40,7 @@ def load_logged_in_user():
     print(f"session keys: {session.keys()}")
 
     g.db = get_db()
-        
+
     if request.form.get("session_id"):
         session_id = request.form.get("session_id")
     else:
@@ -55,7 +55,7 @@ def load_logged_in_user():
             .execute("SELECT * FROM sessions WHERE SessionKey = ?", (session_id,))
             .fetchone()
         )
-        print(f"session_data: {session_data}") 
+        print(f"session_data: {session_data}")
         g.session = session_data
         g.UserID = session_data[1]
 
@@ -65,7 +65,9 @@ def load_logged_in_user():
             .fetchone()
         )
         g.user = user_data
-        g.User = User(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4])
+        g.User = User(
+            user_data[0], user_data[1], user_data[2], user_data[3], user_data[4]
+        )
 
 
 @bp.after_app_request
@@ -73,7 +75,7 @@ def close_database(response):
     g.db.commit()
     g.db.close()
     # print("bye")
-    response.headers.add('Access-Control-Allow-Origin', f"https://{cfg.AUDIENCE}")
+    response.headers.add("Access-Control-Allow-Origin", f"https://{cfg.AUDIENCE}")
     return response
 
 
@@ -94,15 +96,13 @@ def login_required(view):
     return wrapped_view
 
 
-
-@bp.route("/login") #, methods=["POST"]
+@bp.route("/login")  # , methods=["POST"]
 def login():
     # print(g.session)
     if g.session:
         print(f"session id to be deleted: {len(g.session_id)}")
         g.db.cursor().execute(
-            "DELETE FROM sessions WHERE SessionKey = ?",
-            (g.session_id,)
+            "DELETE FROM sessions WHERE SessionKey = ?", (g.session_id,)
         )
         g.db.commit()
 
@@ -134,7 +134,7 @@ def login():
     )
     if not user:
         g.db.cursor().execute(
-            'INSERT INTO sessions (SessionKey, UserID, CreationTime, Status) VALUES (?, ?, ?, 1)',
+            "INSERT INTO sessions (SessionKey, UserID, CreationTime, Status) VALUES (?, ?, ?, 1)",
             (
                 session_id,
                 UserID,
@@ -149,18 +149,28 @@ def login():
 
         g.db.commit()
 
-        response = {"message": "signed up successfully", "status": "success", "redirect": "/onboarding", "session_id": session_id}
+        response = {
+            "message": "signed up successfully",
+            "status": "success",
+            "redirect_url": "/onboarding",
+            "session_id": session_id,
+        }
 
         session["session_id"] = session_id
         return jsonify(response)
 
     g.db.cursor().execute(
-        'INSERT INTO sessions (SessionKey, UserID, CreationTime, Status) VALUES (?, ?, ?, 0)',
+        "INSERT INTO sessions (SessionKey, UserID, CreationTime, Status) VALUES (?, ?, ?, 0)",
         (session_id, UserID, int(time.time())),
     )
 
-    if user[3] == 0: 
-        response = {"message": "user not onboarded yet", "status": "success", "redirect": "/onboarding", "session_id": session_id}
+    if user[3] == 0:
+        response = {
+            "message": "user not onboarded yet",
+            "status": "success",
+            "redirect_url": "/onboarding",
+            "session_id": session_id,
+        }
 
         session["session_id"] = session_id
         return jsonify(response)
@@ -169,7 +179,12 @@ def login():
 
     g.db.commit()
 
-    response = {"message": "logged in successfully", "status": "success", "redirect": "/", "session_id": session_id}
+    response = {
+        "message": "logged in successfully",
+        "status": "success",
+        "redirect_url": "/",
+        "session_id": session_id,
+    }
 
     session["session_id"] = session_id
     return jsonify(response)
@@ -192,9 +207,11 @@ def onboarding():
     #     response = {"status": "error", "message": "username not provided"}
     #     return jsonify(response), 403
 
-    user = g.db.cursor().execute(
-        "SELECT * FROM users WHERE UserID = ?", (g.UserID,)
-    ).fetchone()
+    user = (
+        g.db.cursor()
+        .execute("SELECT * FROM users WHERE UserID = ?", (g.UserID,))
+        .fetchone()
+    )
 
     if user[3] == 1:
         response = {"status": "error", "message": "user already signed up"}
@@ -211,12 +228,23 @@ def onboarding():
 
     print("b")
 
-    g.db.cursor().execute("UPDATE sessions SET Status = 0 WHERE UserID = ?", (g.UserID,))
-    g.db.cursor().execute("UPDATE users SET Onboarded = 1, Username = ?, Bio = ? WHERE UserID = ?", (username, bio, g.UserID,))
+    g.db.cursor().execute(
+        "UPDATE sessions SET Status = 0 WHERE UserID = ?", (g.UserID,)
+    )
+    g.db.cursor().execute(
+        "UPDATE users SET Onboarded = 1, Username = ?, Bio = ? WHERE UserID = ?",
+        (
+            username,
+            bio,
+            g.UserID,
+        ),
+    )
     g.db.commit()
-    response = {"message": "onboarding completed",
-                "status":"success",
-                "redirect": f"/user?u={username}"}
+    response = {
+        "message": "onboarding completed",
+        "status": "success",
+        "redirect": f"/user?u={username}",
+    }
     print("c")
     return jsonify(response)
 
@@ -225,11 +253,8 @@ def onboarding():
 # def find():
 
 
-@bp.route('/check', methods=['GET', 'POST'])
+@bp.route("/check", methods=["GET", "POST"])
 @login_required
 def check():
-    response = {
-        'status': 'success',
-        'message': 'Session Valid'
-    }
+    response = {"status": "success", "message": "Session Valid"}
     return jsonify(response)
