@@ -1,8 +1,4 @@
 import functools
-# import json
-# import re
-from traceback import print_tb
-from urllib import response
 from flask import (
     Blueprint,
     Flask,
@@ -16,7 +12,7 @@ from flask import (
     session,
     url_for,
 )
-from .tools import generate_session_id, get_db, User, getGravatarFromHankoJwt, gravatar
+from .tools import generate_session_id, get_db, User, getGravatarFromHankoJwt
 import time
 import jwt  # upm package(pyjwt)
 from pprint import pprint
