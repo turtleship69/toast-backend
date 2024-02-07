@@ -13,3 +13,5 @@ public_keys = {}
 for jwk in jwks_data["keys"]:
     kid = jwk["kid"]
     public_keys[kid] = jwt.algorithms.RSAAlgorithm.from_jwk(jwk) # type: ignore
+
+image_dir = "content/images/"
