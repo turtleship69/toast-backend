@@ -291,16 +291,13 @@ def upload():
         if request.files.get(f'image{x}'):
             print(f"flag d {x}")
             name = str(uuid4())
-            compressedImage = compress_image(request.files[f'image{x}'])
-            save_image(compressedImage, name)
-            db.execute(
-                'INSERT INTO images (UserID, ImageURI, PostID, UploadDate, Public) VALUES (?, ?, ?, ?, ?)',
-                (UserID, name, PostID, postTime, public)
-            )
-            post[f'image{x}'] = name
+            # compressedImage = compress_image(request.files[f'image{x}'])
+            filename = save_image(request.files[f'image{x}'], UserID, name, PostID, postTime, public)
+            
+            post[f'image{x}'] = filename
             imagesToInsertCommand += f', Image{x}'
             imagesToInsert += 1
-            imagesToInsertNames.append(name)
+            imagesToInsertNames.append(filename)
         else:
             break
 
