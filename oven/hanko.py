@@ -1,16 +1,11 @@
 import functools
 from flask import (
     Blueprint,
-    Flask,
-    flash,
     g,
     jsonify,
-    make_response,
     redirect,
-    render_template,
     request,
     session,
-    url_for,
 )
 from .tools import generate_session_id, get_db, User, getGravatarFromHankoJwt
 import time
@@ -79,7 +74,7 @@ def login_required(view):
         if g.session is None:
             response = {"status": "error", "message": "Invalid session"}
             return jsonify(response), 401
-        if g.user[3] == 0:
+        if g.User.Onboarded == 0:
             response = {
                 "status": "error",
                 "message": "User needs to finish signing up at /onboarding",
