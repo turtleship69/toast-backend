@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+from typing import Literal
 import requests
 from .config import HANKO_API_URL
 def gravatar(email, size=""):
@@ -65,33 +66,65 @@ import numpy as np
 import cv2
 import io
 import json
+from .config import image_dir
 
 """these functions deal with compressing (and encoding) images after they have been
     processed by the image processing module"""
-def get_opencv_img_from_buffer(buffer, flags):
-    bytes_as_np_array = np.frombuffer(buffer.read(), dtype=np.uint8)
-    return cv2.imdecode(bytes_as_np_array, flags)
-def compress_image(image, quality=60):
+# def get_opencv_img_from_buffer(buffer, flags):
+#     bytes_as_np_array = np.frombuffer(buffer.read(), dtype=np.uint8)
+#     return cv2.imdecode(bytes_as_np_array, flags)
+def compress_image(image: io.BytesIO, quality=60) -> tuple[io.BytesIO, str]:
     """compresses the image and returns the compressed image"""
-    img = get_opencv_img_from_buffer(image, cv2.IMREAD_COLOR)
-    #get image size
-    height, width, channels = img.shape
-    #encode image
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
-    result, encimg = cv2.imencode('.jpg', img, encode_param)
+    img = cv2.imdecode(np.frombuffer(image.read(), dtype=np.uint8), cv2.IMREAD_COLOR)
+
+    type = "gif" if img.ndim == 4 else "jpg"
+    if type == "jpg":
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+        result, encimg = cv2.imencode('.jpg', img, encode_param)
+    else: 
+        #compress gif but maintain transparency
+        gif_quality = 60
+        # encode_param = [int(cv2.IMWRITE_GIF_QUALITY), gif_quality]
+        # result, encimg = cv2.imencode('.gif', img, encode_param)
     #convert to bytesio
     compressed_image = io.BytesIO(encimg) # type: ignore
-    return compressed_image
+    return compressed_image, type
+
+#function so it can be adapted in future
+def save_image(image, UserID: str, filename: str, PostID: str, postTime: int, public: bool):
+    animated = False
+    processed_image = Image.open(image)
+    print(processed_image.format)
+
+    if processed_image.format == "GIF":
+        filename+=".gif"
+        processed_image.save(f"{image_dir}/{filename}", quality=60, save_all=True)
+        animated = True
+    else:
+        filename+=".png"
+        processed_image.save(f"{image_dir}/{filename}", quality=60,)
+        
+    print(filename)
+    g.db.execute(
+                'INSERT INTO images (UserID, ImageURI, PostID, UploadDate, Public, Animated) VALUES (?, ?, ?, ?, ?, ?)',
+                (UserID, filename, PostID, postTime, int(public), animated)
+            )
+    return filename
 
 #function so it can be adapted before deployment
-def save_image(image: io.BytesIO, filename: str):
-    path = f"content/images/{filename}.jpg"
+def cv_save_image(image, UserID: str, filename: str, PostID: str, postTime: int, public: Literal[0, 1]):
+    compressed_image, type = compress_image(image)
+    path = f"{image_dir}/{filename}.{type}"
     with open(path, 'wb') as f:
-        f.write(image.getvalue())
+        f.write(compressed_image.getbuffer())
+    g.db.execute(
+                'INSERT INTO images (UserID, ImageURI, PostID, UploadDate, Public) VALUES (?, ?, ?, ?, ?)',
+                (UserID, filename, PostID, postTime, public)
+            )
     return path
 
 def get_image_url(filename: str):
-    return f"/images/{filename}.jpg"
+    return f"/images/{filename}"
 
 
 #load image
