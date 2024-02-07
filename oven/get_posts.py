@@ -33,6 +33,10 @@ def get_post(post_id):
         "SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE lp.PostID = ?",
         (post_id,),
     ).fetchone()
+    if not post:
+        return jsonify({"status": "error", "message": "Post not found"}), 400
+    
+    
 
     # check if post is public
     if post[5] == 1 and not g.UserID == post[1]:
