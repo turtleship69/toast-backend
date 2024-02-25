@@ -1,9 +1,11 @@
 from cgitb import reset
 from pprint import pprint
 from uuid import uuid4
+import time
 # from urllib import response
 from flask import Blueprint, g, jsonify, make_response, request
 
+from .models import getUserByUsername
 from .tools import get_db
 from .hanko import login_required
 
@@ -19,48 +21,18 @@ def user_info(username):
         "bio": str #bio
     }"""
     # get UserID from username
-    user = g.db.execute(
-        "SELECT UserID, GravatarURL FROM users WHERE Username = ?", (username,)
-    ).fetchone()
+    user = getUserByUsername(username, g.db)
+
     if not user:
         return make_response(
             jsonify({"status": "error", "message": "User does not exist"}), 404
         )
 
-    UserID = user[0]
+    user_info = user.getDict(g.db)
+    user_info["status"] = "success"
 
-    # build sql query to get all info in one command
-    query = """
-    SELECT COUNT(follower) as count
-    FROM followers 
-    WHERE followee = ?
-    UNION ALL
-    SELECT COUNT(followee) as count
-    FROM followers
-    WHERE follower = ?
-    UNION ALL  
-    SELECT Bio as count
-    FROM users
-    WHERE UserID = ?
-    UNION ALL 
-	SELECT COUNT(*) as count
-    FROM followers 
-    WHERE followee = ? AND Follower = ? 
-    """
-    data = g.db.execute(
-        query,
-        (UserID, UserID, UserID, UserID, g.UserID),
-    ).fetchall()
-    response = {
-        "status": "success",
-        "followers": data[0][0],
-        "following": data[1][0],
-        "is_following": data[3][0] == 1,
-        "bio": data[2][0],
-        "gravatar": user[1],
-    }
-    pprint(response)
-    return jsonify(response)
+    pprint(user_info)
+    return jsonify(user_info)
 
 
 @bp.route("/follow/<username>/<int:level>")
@@ -105,8 +77,8 @@ def follow(username, level):
     # add a notification to the notifications table
 
     g.db.cursor().execute(
-        "INSERT INTO notifications (UserID, NotifID, Type, Details, Time) VALUES (?, ?, ?, ?, datetime('now'))",
-        (userToFollowID, str(uuid4()), notif, g.UserID),
+        "INSERT INTO notifications (UserID, NotifID, Type, Details, Time) VALUES (?, ?, ?, ?, ?)",
+        (userToFollowID, str(uuid4()), notif, g.UserID, int(time.time())),
     )
     return make_response(
         jsonify({"status": "success", "message": f"You are now following {username}"})
