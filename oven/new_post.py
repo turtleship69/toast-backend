@@ -41,9 +41,6 @@ def upload():
         return jsonify(response)
 
     pprint(request.form)
-
-
-    db = get_db()
     
     UserID = g.UserID
     print(UserID)
@@ -81,33 +78,30 @@ def upload():
 
 
     # make post
-    if request.form.get('privacy') != "0":
-        stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Title, Visibility, UploadTime'
-        if request.form.get('body'):
-            stringToExecute += ', Body'
-        stringToExecute += imagesToInsertCommand
+    stringToExecute = 'INSERT INTO live_posts (PostID, UserID, Title, Visibility, UploadTime'
+    if request.form.get('body'):
+        stringToExecute += ', Body'
+    stringToExecute += imagesToInsertCommand
+    
+
+    stringToExecute += ') VALUES (?, ?, ?, ?, ?'
+    if request.form.get('body'):
+        stringToExecute += ', ?'
+    for x in range(1, imagesToInsert + 1):
+        stringToExecute += ', ?'
+    stringToExecute += ')'
+
+    stringToExecuteValues = [PostID, UserID, post['title'], post['Visibility'], post['UploadTime']]
+    if request.form.get('body'):
+        stringToExecuteValues.append(post['body'])
+    stringToExecuteValues.extend(imagesToInsertNames)
         
-
-        stringToExecute += ') VALUES (?, ?, ?, ?, ?'
-        if request.form.get('body'):
-            stringToExecute += ', ?'
-        for x in range(1, imagesToInsert + 1):
-            stringToExecute += ', ?'
-        stringToExecute += ')'
-
-        stringToExecuteValues = [PostID, UserID, post['title'], post['Visibility'], post['UploadTime']]
-        if request.form.get('body'):
-            stringToExecuteValues.append(post['body'])
-        stringToExecuteValues.extend(imagesToInsertNames)
-            
-        print(f"command: {stringToExecute}")
-        print(f"values: {stringToExecuteValues}")
-        db.execute(stringToExecute, stringToExecuteValues)
+    print(f"command: {stringToExecute}")
+    print(f"values: {stringToExecuteValues}")
+    g.db.execute(stringToExecute, stringToExecuteValues)
 
     # make archive
     addToArchive(UserID, post)
 
-
-    db.commit()
     return jsonify({"status": "success", "message": "Post saved", "id": PostID})
 
