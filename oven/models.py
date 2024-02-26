@@ -120,7 +120,11 @@ class User():
 def getUserByUsername(username: str, db) -> User | None:
     user_id = db.execute(
         "SELECT UserID FROM users WHERE Username = ?", (username,)
-        ).fetchone()[0]
+        ).fetchone()
+    
+    if not user_id:
+        return None
+    user_id = user_id[0]
     
 
     query = """
