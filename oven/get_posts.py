@@ -1,4 +1,5 @@
 from .models import Post, getPostById
+from .cache import cache
 
 from flask import Blueprint, g, jsonify
 import re
@@ -17,7 +18,7 @@ POST_ID_FORMAT = re.compile(
 
 
 @bp.route("/get_post/<post_id>")
-# @login_required
+@cache(60 * 5)
 def get_post(post_id):
     error = None
 
@@ -78,6 +79,7 @@ def get_post(post_id):
 
 
 @bp.route("/home")
+@cache(30)
 def home():
     if not g.logged_in:
         # get 10 most recent public posts
