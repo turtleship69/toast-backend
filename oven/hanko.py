@@ -31,7 +31,7 @@ safe_username_chars = [
 def load_logged_in_user():
     print(f"session keys: {session.keys()}")
 
-    g.db = get_db()
+    get_db()
 
     session_id = session.get("session_id")
     g.session_id = session_id

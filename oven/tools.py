@@ -35,8 +35,8 @@ def generate_session_id():
 #accessing the database
 import sqlite3 
 from flask import current_app, g
+from .config import DATABASE
 def get_db():
-    DATABASE = 'content/database.db'
     if 'db' not in g:
         g.db = sqlite3.connect(DATABASE)
         g.db.row_factory = sqlite3.Row
