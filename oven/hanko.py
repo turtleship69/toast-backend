@@ -256,3 +256,13 @@ def onboarding():
 def check():
     response = {"status": "success", "message": "Session Valid"}
     return jsonify(response)
+
+@bp.route("/profile")
+def profile():
+    # if the user is not logged in, redirect to the login page with the redirect_url parameter as /hanko/profile
+    # otherwise go to their profile
+    if g.logged_in:
+        return redirect(f"/user?u={g.User.username}")
+    else:
+        redirect_url_parameter = f"?redirect_url=/hanko/profile"
+        return redirect(f"/login{redirect_url_parameter}")
