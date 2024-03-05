@@ -20,7 +20,7 @@ class Post:
         Image5=None,
     ):
         self.postId = postId
-        self.posterId = posterId
+        self.poster_id = posterId
         self.username = username
         self.gravatar = gravatar
         self.title = title

@@ -1,6 +1,4 @@
 from .models import getPostById
-from .hanko import login_required
-from .tools import get_db, get_image_url
 
 from flask import Blueprint, g
 from flask import jsonify
@@ -13,8 +11,13 @@ POST_ID_FORMAT = re.compile(
         re.I,
     )
 
+
+# 0 = Only Me
+# 1 = Only Friends
+# 2 = Everyone
+
 @bp.route("/get_post/<post_id>")
-@login_required
+# @login_required
 def get_post(post_id):
     error = None
 
@@ -33,15 +36,26 @@ def get_post(post_id):
     if not post:
         return jsonify({"status": "error", "message": "Post not found"}), 400
     
+    if post.visibility == 2:
+        return jsonify(post.getDict())
+    else: 
+        if not g.logged_in:
+            return jsonify({"status": "error", "message": "Not logged in", "errorCode": "loginRequired"}), 400
+    print(g.User.username)
     
+    
+    if post.visibility == 0: 
+        if g.UserID == post.poster_id:
+            return jsonify(post.getDict())
+        else: 
+            return jsonify({"status": "error", "message": "Post not found"}), 400
 
     # check if post is public
-    if post.visibility == 1 and not g.UserID == post.posterId:
+    if post.visibility == 1 and not g.UserID == post.poster_id:
         # check if the current user has access to the post, they are either the OP or friend
-        print(g.UserID, post.posterId)
         friendship = g.db.execute(
             "SELECT Type FROM followers WHERE Follower = ? AND Followee = ?",
-            (g.UserID, post.posterId),
+            (g.UserID, post.poster_id),
         ).fetchone()
 
         if not friendship and friendship == 2:

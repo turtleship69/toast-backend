@@ -36,6 +36,7 @@ def load_logged_in_user():
     session_id = session.get("session_id")
     g.session_id = session_id
     if session_id is None:
+        g.logged_in = False
         g.session = None
         g.UserID = None
     else:
@@ -53,10 +54,10 @@ def load_logged_in_user():
             .execute("SELECT * FROM users WHERE UserID = ?", (g.UserID,))
             .fetchone()
         )
-        g.user = user_data
         g.User = User(
             user_data[0], user_data[1], user_data[2], user_data[3], user_data[4]
         )
+        g.logged_in = True
 
 
 @bp.after_app_request
