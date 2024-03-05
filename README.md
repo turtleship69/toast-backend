@@ -1,5 +1,6 @@
 # Toast Backend
 ## This repo servers as the backend for the Toast project. 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/eca06442-95e7-4b38-87c3-7e16857962d1/deploy-status)](https://app.netlify.com/sites/t0ast/deploys)
 
 ## Account login and signup
 ### POST /signup
