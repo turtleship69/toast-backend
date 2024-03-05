@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask
 from os import urandom
 
@@ -8,10 +9,11 @@ def create_app():
     else:
         app.config['SECRET_KEY'] = urandom(24)
 
-    # a simple page that says hello
+    # main page and server uptime
+    startTime = datetime.now()
     @app.route('/')
-    def hello():
-        return 'Hello, World!'
+    def index():
+        return f"Server running for {datetime.now() - startTime}"
 
     # from . import auth
     # app.register_blueprint(auth.bp)
