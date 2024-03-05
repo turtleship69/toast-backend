@@ -94,7 +94,6 @@ def home():
         ).fetchall()
 
         following = [x[0] for x in following] if following else [None]
-        print(following)
 
         friends = g.db.execute(
             "SELECT Followee FROM followers WHERE Follower = ? AND Type = 2 AND Accepted = 1",
@@ -108,7 +107,6 @@ def home():
         # people g.User is friends with - public and friends only posts
         # posts by g.User - all posts
         command = f"SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE (lp.Visibility = 2 AND lp.UserID IN ({','.join('?'*len(following))})) OR (lp.Visibility >= 1 AND lp.UserID IN ({','.join('?'*len(friends))})) OR lp.UserID = ? ORDER BY lp.UploadTime DESC LIMIT 10".format()
-        print(command)
         posts = g.db.execute(
             command,
             (*following,

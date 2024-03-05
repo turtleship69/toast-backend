@@ -37,6 +37,7 @@ class Post:
         post = {
             "PostID": self.postId,
             "Username": self.username,
+            "Gravatar": self.gravatar,
             "Title": self.title,
             "Visibility": self.visibility,
             "UploadTime": self.UploadTime,
