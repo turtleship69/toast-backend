@@ -18,7 +18,7 @@ POST_ID_FORMAT = re.compile(
 
 
 @bp.route("/get_post/<post_id>")
-@cache(60 * 5)
+#@cache(60 * 5)
 def get_post(post_id):
     error = None
 
@@ -79,7 +79,7 @@ def get_post(post_id):
 
 
 @bp.route("/home")
-@cache(30)
+# @cache(30)
 def home():
     if not g.logged_in:
         # get 10 most recent public posts
