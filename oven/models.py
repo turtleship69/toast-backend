@@ -49,6 +49,10 @@ class Post:
         for x in range(1, 6):
             if getattr(self, f"Image{x}") is not None:
                 post[f"Image{x}"] = get_image_url(getattr(self, f"Image{x}"))
+
+        if g.UserID:
+            if self.poster_id == g.UserID:
+                post["byCurrentUser"] = True
         return post
 
 
