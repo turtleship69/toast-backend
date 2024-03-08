@@ -1,13 +1,12 @@
-import json
-import time, re
-from flask import Blueprint, g, request, jsonify, make_response
+import time
+from flask import Blueprint, g, request, jsonify
+
+from .models import getPostById
 from .hanko import login_required
-from .tools import addToArchive, get_db, compress_image, save_image, addToArchive, get_image_url
+from .tools import addToArchive, save_image, addToArchive
 
 from uuid import uuid4
 from pprint import pprint
-from datetime import datetime
-
 
 bp = Blueprint('submit', __name__, url_prefix="/new_post")
 
@@ -19,9 +18,6 @@ bp = Blueprint('submit', __name__, url_prefix="/new_post")
 @bp.route('/new', methods=['POST'])
 @login_required
 def upload():
-    print("flag c")
-
-
     postTime = int(time.time())
     error = None
 
@@ -105,3 +101,22 @@ def upload():
 
     return jsonify({"status": "success", "message": "Post saved", "id": PostID})
 
+@bp.route('/delete/<id>')
+@login_required
+def delete(id):
+    post = getPostById(id)
+    error = None
+    if not post:
+        error = "Post not found"
+    elif post.poster_id != g.UserID:
+        error = "Not your post"
+
+    if error:
+        response = {
+            'status': 'error',
+            'message': error
+        }
+        return jsonify(response)
+    else:
+        g.db.execute("DELETE FROM live_posts WHERE PostID = ?", (id,))
+        return jsonify({"status": "success", "message": "Post deleted"})
