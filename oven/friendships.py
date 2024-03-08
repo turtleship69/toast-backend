@@ -6,7 +6,6 @@ import time
 from flask import Blueprint, g, jsonify, make_response, request
 
 from .models import getUserByUsername
-from .tools import get_db
 from .hanko import login_required
 
 bp = Blueprint("post", __name__, url_prefix="/friendships")
@@ -145,7 +144,6 @@ def following():
     }
 
     """
-    db = get_db()
     # table followers in format: followers(follower, followee, type)
     if request.method == "POST":
         session_id = (
@@ -160,7 +158,7 @@ def following():
             jsonify({"status": "error", "message": "Invalid or missing sessionID"}), 401
         )
     following = (
-        db.cursor()
+        g.db.cursor()
         .execute(
             "SELECT * FROM followers WHERE follower = (SELECT UserID FROM sessions WHERE SessionKey = ?)",
             (session_id,),
@@ -182,7 +180,7 @@ def following():
     for user in following:
         users.append(
             {
-                "username": db.cursor()
+                "username": g.db.cursor()
                 .execute("SELECT Username FROM users WHERE UserID = ?", (user[1],))
                 .fetchone()[0],
                 "level": user[2],
@@ -221,7 +219,6 @@ def followers():
         ]
     }
     """
-    db = get_db()
     # table followers in format: followers(follower, followee, type)
     if request.method == "POST":
         session_id = (
@@ -237,7 +234,7 @@ def followers():
     else:
         session_id = request.cookies.get("session_id")
     followers = (
-        db.cursor()
+        g.db.cursor()
         .execute(
             "SELECT * FROM followers WHERE followee = (SELECT UserID FROM sessions WHERE SessionKey = ?)",
             (session_id,),
@@ -259,7 +256,7 @@ def followers():
     for user in followers:
         users.append(
             {
-                "username": db.cursor()
+                "username": g.db.cursor()
                 .execute("SELECT Username FROM users WHERE UserID = ?", (user[0],))
                 .fetchone()[0],
                 "level": user[2],

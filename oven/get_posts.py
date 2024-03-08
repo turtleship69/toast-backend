@@ -32,7 +32,7 @@ def get_post(post_id):
     #     "SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE lp.PostID = ?",
     #     (post_id,),
     # ).fetchone()
-    post = getPostById(post_id, g.db)
+    post = getPostById(post_id)
 
     if not post:
         return jsonify({"status": "error", "message": "Post not found"}), 400

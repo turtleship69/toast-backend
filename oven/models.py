@@ -56,8 +56,8 @@ class Post:
         return post
 
 
-def getPostById(id: str, db) -> Post | None:
-    post_info = db.execute(
+def getPostById(id: str) -> Post | None:
+    post_info = g.db.execute(
         "SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE lp.PostID = ?",
         (id,),
     ).fetchone() 
