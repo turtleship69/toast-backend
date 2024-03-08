@@ -18,7 +18,7 @@ POST_ID_FORMAT = re.compile(
 
 
 @bp.route("/get_post/<post_id>")
-#@cache(60 * 5)
+@cache(60 * 5)
 def get_post(post_id):
     error = None
 
