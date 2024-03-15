@@ -40,12 +40,14 @@ def follow(username, level):
     #1 = follow, 2 = friend
     # table followers in format: followers(follower, followee, type, accepted)
 
-    if level == "1":
+    if level == 1:
         accepted = 1
         notif = "NewFollower"
-    else:
+    elif level == 2:
         accepted = 0
         notif = "FriendRequest"
+    else:
+        return jsonify({"status": "error", "message": "Invalid level"}), 400
     
 
     # check if user exists and get the UserID of the user who is being followed
@@ -58,10 +60,12 @@ def follow(username, level):
         )
     userToFollowID = userToFollowID[0]
     # check if the user is already following the user
-    if g.db.execute(
+    following = g.db.execute(
         "SELECT * FROM followers WHERE follower = ? AND followee = ?",
         (g.UserID, userToFollowID),
-    ).fetchone():
+    ).fetchone()
+    print(following)
+    if following and following[0] == level:
         return (
             jsonify(
                 {"status": "error", "message": "You are already following this user", "errorCode": "already_following"}
@@ -83,6 +87,27 @@ def follow(username, level):
         jsonify({"status": "success", "message": f"You are now following {username}"})
     )
 
+@bp.route("/accept/<notif_id>")
+@login_required
+def accept(notif_id): #change the follow to accepted and delete the notification
+    #check if the notification exists
+    notif = g.db.execute(
+        "SELECT * FROM notifications WHERE NotifID = ? AND UserID = ?",
+        (notif_id, g.UserID),
+    ).fetchone()
+    if not notif:
+        return make_response(
+            jsonify({"status": "error", "message": "No such notification"}), 404
+        )
+    #update follow type to accepted, remove old follow and remove notif
+    commands = [
+        ("UPDATE followers set Accepted = 1 WHERE Follower = ? AND Followee = ? AND Type = 2", (g.UserID, notif["Details"])),
+        ("DELETE FROM notifications WHERE UserID = ? AND Type = ? AND Details = ?", (g.UserID, "FollowRequest", notif["Details"])),
+        ("DELETE FROM followers WHERE Follower = ? AND Followee = ? AND Type = ?", (notif["Details"], g.UserID, 1))
+    ]
+    g.db.executemany(*commands)
+
+    return jsonify({"status": "success", "message": "Request accepted"})
 
 @bp.route("/unfollow/<username>")
 @login_required

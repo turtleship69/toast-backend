@@ -1,5 +1,5 @@
 # this file defines classes of items to be retrieved from the database
-from oven.tools import get_image_url
+from .tools import get_image_url
 from flask import g
 
 class Post:
@@ -85,7 +85,7 @@ def getPostById(id: str) -> Post | None:
 
 
 class User(): 
-    def __init__(self, userId: str, username: str, gravatar: str, bio: str, onboarded: bool|None = None, followers: int|None = None, following: int|None = None, is_following: bool = False):
+    def __init__(self, userId: str, username: str, gravatar: str, friendship: int, bio: str|None = None, onboarded: bool|None = None, followers: int|None = None, following: int|None = None):
         self.userId = userId
         self.username = username
         self.gravatar = gravatar
@@ -93,7 +93,7 @@ class User():
         self.bio = bio
         self.followers = followers
         self.following = following
-        self.is_following = is_following
+        self.friendship = friendship
 
 
     def getDict(self, db) -> dict:
@@ -115,7 +115,7 @@ class User():
             "bio": self.bio,
             "followers": self.followers,
             "following": self.following,
-            "is_following": self.is_following,
+            "friendship": self.friendship,
             "posts": post_list,
         }
 
@@ -161,6 +161,6 @@ def getUserByUsername(username: str, db) -> User | None:
     if not user_info:
         return None
 
-    user = User(user_id, username, user_info[0][0], user_info[3][0], followers=user_info[1][0], following=user_info[2][0], is_following=user_info[4][0] == 1)
+    user = User(user_id, username, user_info[0][0], user_info[4][0], user_info[3][0], followers=user_info[1][0], following=user_info[2][0])
 
     return user 
