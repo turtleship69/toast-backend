@@ -12,7 +12,5 @@ bp = Blueprint('images', __name__, url_prefix="/images")
 @cache(60 * 60 * 24)
 def serve_image(filename):
     image = make_response(send_from_directory(path.join(getcwd(), 'content/images'), filename))
-    image.headers['Cache-Control'] = 'public, max-age=604800' # one week
-    image.headers['Netlify-CDN-Cache-Control'] = 'public, max-age=604800' # one week
     image.headers['Content-Type'] = 'image/jpeg'
     return image
