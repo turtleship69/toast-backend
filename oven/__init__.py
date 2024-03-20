@@ -33,4 +33,7 @@ def create_app():
     from . import images
     app.register_blueprint(images.bp)
 
+    from . import notifs
+    app.register_blueprint(notifs.bp)
+
     return app

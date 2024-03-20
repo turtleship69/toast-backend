@@ -30,7 +30,7 @@ def user_info(username):
     user_info = user.getDict(g.db)
     user_info["status"] = "success"
 
-    pprint(user_info)
+    # pprint(user_info)
     return jsonify(user_info)
 
 
@@ -64,8 +64,8 @@ def follow(username, level):
         "SELECT * FROM followers WHERE follower = ? AND followee = ?",
         (g.UserID, userToFollowID),
     ).fetchone()
-    print(following)
-    if following and following[0] == level:
+    if following and following[3] == level:
+        print(following[3])
         return (
             jsonify(
                 {"status": "error", "message": "You are already following this user", "errorCode": "already_following"}
@@ -77,8 +77,8 @@ def follow(username, level):
         "INSERT INTO followers (follower, followee, type, accepted) VALUES (?, ?, ?, ?)",
         (g.UserID, userToFollowID, level, accepted),
     )
+    
     # add a notification to the notifications table
-
     g.db.cursor().execute(
         "INSERT INTO notifications (UserID, NotifID, Type, Details, Time) VALUES (?, ?, ?, ?, ?)",
         (userToFollowID, str(uuid4()), notif, g.UserID, int(time.time())),
@@ -87,25 +87,29 @@ def follow(username, level):
         jsonify({"status": "success", "message": f"You are now following {username}"})
     )
 
-@bp.route("/accept/<notif_id>")
+@bp.route("/accept/<username>")
 @login_required
-def accept(notif_id): #change the follow to accepted and delete the notification
-    #check if the notification exists
-    notif = g.db.execute(
-        "SELECT * FROM notifications WHERE NotifID = ? AND UserID = ?",
-        (notif_id, g.UserID),
+def accept(username): #change the follow to accepted and delete the notification
+    #check if the request exists
+    request = g.db.execute(
+        "SELECT * FROM followers WHERE Follower = (SELECT UserID FROM Users WHERE Username = ?) AND Followee = ? AND Type = 2 LIMIT 1", (username, g.UserID)
     ).fetchone()
-    if not notif:
-        return make_response(
-            jsonify({"status": "error", "message": "No such notification"}), 404
-        )
-    #update follow type to accepted, remove old follow and remove notif
+    if not request:
+        return jsonify({"status": "error", "message": "No such request"})
+    #update follow type to accepted, add the reverse follow, remove old follow, remove request notif and add now friends notif
     commands = [
-        ("UPDATE followers set Accepted = 1 WHERE Follower = ? AND Followee = ? AND Type = 2", (g.UserID, notif["Details"])),
-        ("DELETE FROM notifications WHERE UserID = ? AND Type = ? AND Details = ?", (g.UserID, "FollowRequest", notif["Details"])),
-        ("DELETE FROM followers WHERE Follower = ? AND Followee = ? AND Type = ?", (notif["Details"], g.UserID, 1))
+        ("UPDATE followers set Accepted = 1 WHERE Follower = (SELECT UserID FROM Users WHERE Username = ?) AND Followee = ? AND Type = 2", (username, g.UserID)),
+        ("INSERT INTO followers (Follower, Followee, Type, Accepted) VALUES (?, (SELECT UserID FROM Users WHERE Username = ?), 2, 1)", (g.UserID, username)),
+
+        ("DELETE FROM followers WHERE Follower = (SELECT UserID FROM Users WHERE Username = ?) AND Followee = ? AND Type = 1", (username, g.UserID)),
+        ("DELETE FROM followers WHERE Follower = ? AND Followee = (SELECT UserID FROM Users WHERE Username = ?) AND Type = 1", (g.UserID, username)),
+
+        ("DELETE FROM notifications WHERE UserID = ? AND Details = (SELECT UserID FROM Users WHERE Username = ?)", (g.UserID, username)),
+        ("INSERT INTO notifications (UserID, NotifID, Type, Details, Time) VALUES ((SELECT UserID FROM Users WHERE Username = ?), ?, ?, ?, ?)", (username, str(uuid4()), "NowFriends", g.UserID, int(time.time()))),
+        ("INSERT INTO notifications (UserID, NotifID, Type, Details, Time) VALUES (?, ?, ?, (SELECT UserID FROM Users WHERE Username = ?), ?)", (g.UserID, str(uuid4()), "NowFriends", username, int(time.time())))
     ]
-    g.db.executemany(*commands)
+    for command in commands:
+        g.db.cursor().execute(*command)
 
     return jsonify({"status": "success", "message": "Request accepted"})
 
@@ -137,6 +141,13 @@ def unfollow(username):
         "DELETE FROM followers WHERE follower = ? AND followee = (SELECT UserID FROM users WHERE Username = ?)",
         (g.UserID, username),
     )
+
+    # remove the notification from the notifications table
+    g.db.execute(
+        "DELETE FROM notifications WHERE UserID = (SELECT UserID FROM users WHERE Username = ?) AND Type = 'NewFollower' AND Details = ?",
+        (username, g.UserID),
+    )
+
     return make_response(
         jsonify(
             {
