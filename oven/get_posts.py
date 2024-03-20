@@ -22,16 +22,11 @@ POST_ID_FORMAT = re.compile(
 def get_post(post_id):
     error = None
 
-    # check string matches regex ^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$
+    # check string matches regex
     global POST_ID_FORMAT
     if not POST_ID_FORMAT.match(post_id):
         return jsonify({"status": "error", "message": "Invalid post ID"}), 400
 
-    # get post from database
-    # post = db.execute(
-    #     "SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE lp.PostID = ?",
-    #     (post_id,),
-    # ).fetchone()
     post = getPostById(post_id)
 
     if not post:
@@ -79,7 +74,6 @@ def get_post(post_id):
 
 
 @bp.route("/home")
-# @cache(30)
 def home():
     if not g.logged_in:
         # get 10 most recent public posts
@@ -114,9 +108,15 @@ def home():
             g.UserID,)
         ).fetchall()
 
+        if len(posts) < 10:
+            posts = posts + g.db.execute(
+            "SELECT lp.*, u.Username, u.GravatarURL FROM live_posts lp JOIN Users u ON lp.UserID = u.UserID WHERE lp.Visibility = 2 ORDER BY lp.UploadTime DESC LIMIT ?", (10-len(posts),)
+        ).fetchall()
+
     # convert posts to Post objects
     postsDict = {"posts": []}
     for post in posts:
+        print(len(post))
         postsDict["posts"].append(
             Post(
                 post[0],
